@@ -2,19 +2,19 @@
 Chain of Cognitive from Negative to Positive
 
 ## Overview
-![assets/paradigm.png](Overview)
+![Overview](assets/paradigm.png)
 
 ## Todo List
 
- - [] Fetch data from OpenAI
-   - [x] Fetch different groups
-   - [x] Fetch situtations
-   - [x] Fetch negative thoughts
-   - [x] Fetch positive thoughts
-   - []  Fetch Responses
-   - []  Fetch Actions
- - [] Backward checking
- - [] Chat with Legends 
+- [ ] Fetch data from OpenAI
+  - [x] Fetch different groups
+  - [x] Fetch situations
+  - [x] Fetch negative thoughts
+  - [x] Fetch positive thoughts
+  - [ ] Fetch Responses
+  - [ ] Fetch Actions
+- [ ] Backward checking
+- [ ] Training
 
 
 ## Contribution
