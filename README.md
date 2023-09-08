@@ -14,7 +14,7 @@ Chain of Cognitive from Negative to Positive
    - []  Fetch Responses
    - []  Fetch Actions
  - [] Backward checking
- - [] Chat with Legends 
+ - [] Model Training
 
 
 ## Contribution
