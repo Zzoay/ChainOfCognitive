@@ -2,7 +2,7 @@
 Chain of Cognitive from Negative to Positive
 
 ## Overview
-![assets/paradigm.png](Overview)
+![Overview](assets/paradigm.png)
 
 ## Todo List
 
