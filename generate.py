@@ -2,10 +2,11 @@
 import os
 
 import ast
-import re
 import json
-import time
 import random
+import re
+import requests
+import time
 from itertools import chain
 
 import numpy as np
@@ -17,7 +18,7 @@ from datasets import load_dataset, load_from_disk
 import openai
 openai_config = json.load(open('config/openai.json'))
 openai.api_base = openai_config['openai_api_base']
-openai.api_key = openai_config ['api_key']
+openai.api_key = openai_config ['openai_api_key']
 
 
 system_prompt = """You are an assistant with empathy. Your task is to build the human cognitive chain in order to reframe cognition and thus make the thoughts of the user more positive. 
@@ -43,30 +44,53 @@ negative_thought_prompt = """Correspondingly, what negative thoughts might arise
 positive_thought_prompt = """These negative thoughts may be due to cognitive traps. Please step out of these traps and turn them into positives (strict one-to-one). It is in the first person (for example, I...). Keep the json format, as {"situation_id": 1, "thoughts": [...,...]} Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
-negative_expression_prompt = """These negative thoughts may lead to some negative expressions. Please infer the possible expressions in the first person (for example, I...), strict one-to-one. Please put them in the tone of an emotional seeker. The expressions should contain the situation the seeker faced and be affected by his negative thoughts. Please Keep the json format, as {"situation_id": 1, "expressions": [...,...]} Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
+negative_expression_prompt = """These 5 negative thoughts may lead to 5 corresponding negative expressions and actions. Please infer them based on each thought, in the first person (...I...), strict one-to-one. Please put them in the tone of an emotional seeker. Expressions and actions should be consistent. Each expression and action should encompass the situation the seeker faced and be affected by each negative thought. Each expression is only the utterance. Each action only contain specific behaviour. They're both complete sentences. Please Keep the json format, as {"situation_id": 1, "expressions_and_actions": [[<expression_1>, <action_1>], [<expression_2>, <action_2>], ...]} \n Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
-negative_action_prompt = """These negative thoughts may lead to some negative actions. Please infer the possible actions in the first person (for example, I...), strict one-to-one. Please put them in the tone of an emotional seeker. The actions should contain the situation the seeker faced and be affected by his negative thoughts. Please Keep the json format, as {"situation_id": 1, "actions": [...,...]} Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
-"""
-
-positive_response_prompt = """
-"""
-
-positive_action_prompt = """
+positive_response_prompt = """To counteract these 5 negative thoughts, please output 5 (one-to-one) positive corresponding reponse strategies (in the third person (...him/her...)) and responses (in the second person (...you...)), based on the reframed positive thoughts, strict one-to-one. Each positive strategy and response should be sympathetic, correspond to each negative and positive thought. Responses and strategies should be consistent. Each strategy is to expect to change or improve the person's thought and behaviour to be positive. Each response is with a style of an emotional companion, only the utterance. Keep the json format, as {"situation_id": 1, "responses_and_strategies": [[<strategy_1>, <response_1>], [<strategy_2>, <response_2>], ...]} \n Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
 
 def get_response(history_messages, model="gpt-3.5-turbo-0613"):
+    if True:
+        return get_response_ust(history_messages, {"model": model})
     while True:
         try:
             completion = openai.ChatCompletion.create(model=model, temperature=1, messages=history_messages)
-            print(completion.usage)
+            # print(completion.usage)
         except Exception as e:
             print(e)
             time.sleep(3)
             continue
         break
     return completion.choices[0].message.content.strip()
+
+def get_response_ust(messages, parameters=None):
+    url = openai_config['openai_api_base']
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": openai_config['openai_api_key']
+        }
+    data = {
+        "messages": messages,
+        }
+    if parameters is not None:
+        data.update(parameters)
+    max_tries, cnt = 3, 0
+    while True:
+        try:
+            response = requests.post(url, headers=headers, data=json.dumps(data)).json()
+            usage = response['usage']['total_tokens']
+            # print(response)
+        except Exception as e:
+            print(e)
+            time.sleep(3)
+            cnt += 1
+            if cnt >= max_tries:
+                break
+            continue
+        break
+    return response['choices'][0]['message']['content'].strip()
 
 def get_groups(history_messages, load_from_file=False):
     history_messages.append({
@@ -179,9 +203,9 @@ def get_positive_thoughts(history_messages, situations, negative_thoughts, load_
         f.write(str(ret))
     return messages, ret
 
-def get_negative_expressions(history_messages, situations, negative_thoughts, load_from_file=False):
-    ret = {"group": situations['group'], "expressions": []}
-    for idx, negative_thought in enumerate(negative_thoughts):
+def get_negative_expressions_actions(history_messages, situations, negative_thoughts, load_from_file=False):
+    ret = {"group": situations['group'], "expressions_and_actions": []}
+    for idx, negative_thought in tqdm(enumerate(negative_thoughts)):
         situation = situations['situations'][idx]
         messages = history_messages.copy()
         messages.pop(0)
@@ -199,26 +223,66 @@ def get_negative_expressions(history_messages, situations, negative_thoughts, lo
         })
 
         if load_from_file:
-            with open('data/negative_expressions.txt', 'r', encoding='utf-8') as f:
+            with open('data/negative_expressions_actions.txt', 'r', encoding='utf-8') as f:
                 for line in f.readlines():
                     ret = ast.literal_eval(line)
                     if ret['group'] == situations['group']:
-                        return messages, ret['negative_expressions']
+                        return messages, ret['expressions_and_actions']
 
         while True:
             try:
-                r = get_response(messages)
+                r = get_response(messages, model="gpt-3.5-turbo-0125")
                 one_expression = ast.literal_eval(r)
                 break
             except SyntaxError as e:
                 print(e)
                 continue
-        ret["expressions"].append(one_expression)
+        ret["expressions_and_actions"].append(one_expression)
         messages = []
     
-    with open(f'data/negative_expressions.txt', 'a') as f:
+    with open(f'data/negative_expressions_actions.txt', 'a') as f:
         f.write('\n')
         f.write(str(ret))
+    return messages, ret
+
+def get_positive_responses_targets(history_messages, situations, negative_thoughts, positive_thoughts, load_from_file=False):
+    ret = {"group": situations['group'], "responses_and_targets": []}
+    for idx, positive_thought in enumerate(positive_thoughts):
+        situation = situations['situations'][idx]
+        messages = history_messages.copy()
+        messages.pop(0)
+        messages.pop(0)
+        messages.append({
+            "role": "assistant",
+            "content": str(positive_thought),
+        })
+        messages.append({
+            "role": "user",
+            "content": positive_response_prompt,
+        })
+
+        if load_from_file:
+            with open('data/positive_strategies_responses.txt', 'r', encoding='utf-8') as f:
+                for line in f.readlines():
+                    ret = ast.literal_eval(line)
+                    if ret['group'] == situations['group']:
+                        return messages, ret['strategies_and_responses']
+
+        while True:
+            try:
+                r = get_response(messages, model="gpt-3.5-turbo")
+                one_response = ast.literal_eval(r)
+                break
+            except SyntaxError as e:
+                print(e)
+                continue
+        ret["strategies_and_responses"].append(one_response)
+        messages = []
+    
+    with open('data/positive_strategies_responses.txt', 'a') as f:
+        f.write('\n')
+        f.write(str(ret))
+    
     return messages, ret
 
 def chain_init_to_positive():
@@ -230,8 +294,8 @@ def chain_init_to_positive():
     for i, group_name in enumerate(groups):
         # if not os.path.exists(f'data/{group_name}'):
         #     os.mkdir(f'data/{group_name}')
-        # if i < 38:
-        #     continue
+        # if i+1 not in [15, 25, 72]:
+            # continue
 
         situation_msg, situations = get_situations(history_messages, group_name, load_from_file=True)
         situation_msg.pop(1)
@@ -239,7 +303,9 @@ def chain_init_to_positive():
         neg_msg, negative_thoughts = get_negative_thoughts(situation_msg, situations, load_from_file=True)
         pos_msg, positive_thoughts = get_positive_thoughts(neg_msg, situations, negative_thoughts, load_from_file=True)
 
-        neg_r_msg, negative_expressions = get_negative_expressions(neg_msg, situations, negative_thoughts, load_from_file=False)
+        neg_r_msg, negative_expressions_actions = get_negative_expressions_actions(neg_msg, situations, negative_thoughts, load_from_file=True)
+
+        pos_r_msg, positive_responses_targets = get_positive_responses_targets(pos_msg, situations, negative_thoughts, positive_thoughts, load_from_file=False)
 
         pass
 
