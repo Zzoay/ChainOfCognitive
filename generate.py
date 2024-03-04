@@ -51,8 +51,8 @@ positive_response_prompt = """To counteract these 5 negative thoughts, please ou
 """
 
 
-def get_response(history_messages, model="gpt-3.5-turbo-0613"):
-    if True:
+def get_response(history_messages, model="gpt-3.5-turbo-0613", mode='ust'):
+    if mode == 'ust':
         return get_response_ust(history_messages, {"model": model})
     while True:
         try:
