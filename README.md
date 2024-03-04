@@ -6,13 +6,13 @@ Chain of Cognitive from Negative to Positive
 
 ## Todo List
 
- - [] Fetch data from OpenAI
+ - [x] Fetch data from OpenAI
    - [x] Fetch different groups
    - [x] Fetch situtations
    - [x] Fetch negative thoughts
    - [x] Fetch positive thoughts
-   - []  Fetch Responses
-   - []  Fetch Actions
+   - [x]  Fetch negative expressions and actions 
+   - [x]  Fetch positive strategies and responses
  - [] Backward checking
  - [] Model Training
 

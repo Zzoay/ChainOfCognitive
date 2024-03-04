@@ -35,19 +35,19 @@ Note:
 3. 5 negative thoughts for a situation
 """
 
-situation_prompt = """Please generate 20 situations (not necessarily bad or negative) that {group_name} may face, in the first person (for example, I...). Ensure JSON format (without extra information), where the keys are "group" and "situation" (ensure double quotes), like {{r"group": ..., r"situation": [{{r"situation_id": 1, r"situation": ...}}]}}. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
+situation_prompt = """Please generate 20 situations (not necessarily bad or negative) that {group_name} may face, in the first person (for example, I...). Ensure JSON format (without extra information), where the keys are "group" and "situation" (ensure double quotes), like {{r"group": ..., r"situation": [{{r"situation_id": <situation_id>, r"situation": ...}}]}}. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
-negative_thought_prompt = """Correspondingly, what negative thoughts might arise (due to cognitive traps) in response to these situations? It is in the first person (for example, I...). Keep the json format, as {"group": "...", "negative_thoughts": [{"situation_id": 1, "thoughts": [...,...]}, ...]} Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
+negative_thought_prompt = """Correspondingly, what negative thoughts might arise (due to cognitive traps) in response to these situations? It is in the first person (for example, I...). Keep the json format, as {"group": "...", "negative_thoughts": [{"situation_id": <situation_id>, "thoughts": [...,...]}, ...]} Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
-positive_thought_prompt = """These negative thoughts may be due to cognitive traps. Please step out of these traps and turn them into positives (strict one-to-one). It is in the first person (for example, I...). Keep the json format, as {"situation_id": 1, "thoughts": [...,...]} Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
+positive_thought_prompt = """These negative thoughts may be due to cognitive traps. Please step out of these traps and turn them into positives (strict one-to-one). It is in the first person (for example, I...). Keep the json format, as {"situation_id": <situation_id>, "thoughts": [...,...]} Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
-negative_expression_prompt = """These 5 negative thoughts may lead to 5 corresponding negative expressions and actions. Please infer them based on each thought, in the first person (...I...), strict one-to-one. Please put them in the tone of an emotional seeker. Expressions and actions should be consistent. Each expression and action should encompass the situation the seeker faced and be affected by each negative thought. Each expression is only the utterance. Each action only contain specific behaviour. They're both complete sentences. Please Keep the json format, as {"situation_id": 1, "expressions_and_actions": [[<expression_1>, <action_1>], [<expression_2>, <action_2>], ...]} \n Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
+negative_expression_prompt = """These 5 negative thoughts may lead to 5 corresponding negative expressions and actions. Please infer them based on each thought, in the first person (...I...), strict one-to-one. Please put them in the tone of an emotional seeker. Expressions and actions should be consistent. Each expression and action should encompass the situation the seeker faced and be affected by each negative thought. Each expression is only the utterance. Each action only contain specific behaviour. They're both complete sentences. Please Keep the json format, as {"situation_id": <situation_id>, "expressions_and_actions": [[<expression_1>, <action_1>], [<expression_2>, <action_2>], ...]} \n Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
-positive_response_prompt = """To counteract these 5 negative thoughts, please output 5 (one-to-one) positive corresponding reponse strategies (in the third person (...him/her...)) and responses (in the second person (...you...)), based on the reframed positive thoughts, strict one-to-one. Each positive strategy and response should be sympathetic, correspond to each negative and positive thought. Responses and strategies should be consistent. Each strategy is to expect to change or improve the person's thought and behaviour to be positive. Each response is with a style of an emotional companion, only the utterance. Keep the json format, as {"situation_id": 1, "responses_and_strategies": [[<strategy_1>, <response_1>], [<strategy_2>, <response_2>], ...]} \n Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
+positive_response_prompt = """To counteract these 5 negative thoughts, please output 5 (one-to-one) positive corresponding reponse strategies (in the third person (...him/her...)) and responses (in the second person (...you...)), based on the reframed positive thoughts, strict one-to-one. Each positive strategy and response should be sympathetic, correspond to each negative and positive thought. Responses and strategies should be consistent. Each strategy is to expect to change or improve the person's thought and behaviour to be positive. Each response is with a style of an emotional companion, only the utterance. Keep the json format, as {"situation_id": <situation_id>, "responses_and_strategies": [[<strategy_1>, <response_1>], [<strategy_2>, <response_2>], ...]} \n Don't output "situation" for clarity. Remember that single quotes can be problematic to import, so wrap the content in double quotes).
 """
 
 
@@ -245,13 +245,14 @@ def get_negative_expressions_actions(history_messages, situations, negative_thou
         f.write(str(ret))
     return messages, ret
 
-def get_positive_responses_targets(history_messages, situations, negative_thoughts, positive_thoughts, load_from_file=False):
-    ret = {"group": situations['group'], "responses_and_targets": []}
-    for idx, positive_thought in enumerate(positive_thoughts):
+def get_positive_responses_targets(history_messages, situations, positive_thoughts, load_from_file=False):
+    ret = {"group": situations['group'], "strategies_and_responses": []}
+    for idx, positive_thought in tqdm(enumerate(positive_thoughts), total=len(positive_thoughts)):
         situation = situations['situations'][idx]
         messages = history_messages.copy()
         messages.pop(0)
         messages.pop(0)
+        messages.pop(1)
         messages.append({
             "role": "assistant",
             "content": str(positive_thought),
@@ -291,11 +292,11 @@ def chain_init_to_positive():
         "content": system_prompt,
     }]
     history_messages, groups = get_groups(history_messages, load_from_file=True)
-    for i, group_name in enumerate(groups):
+    for i, group_name in tqdm(enumerate(groups), total=len(groups)):
         # if not os.path.exists(f'data/{group_name}'):
         #     os.mkdir(f'data/{group_name}')
-        # if i+1 not in [15, 25, 72]:
-            # continue
+        # if i < 10:
+        #     continue
 
         situation_msg, situations = get_situations(history_messages, group_name, load_from_file=True)
         situation_msg.pop(1)
@@ -304,8 +305,7 @@ def chain_init_to_positive():
         pos_msg, positive_thoughts = get_positive_thoughts(neg_msg, situations, negative_thoughts, load_from_file=True)
 
         neg_r_msg, negative_expressions_actions = get_negative_expressions_actions(neg_msg, situations, negative_thoughts, load_from_file=True)
-
-        pos_r_msg, positive_responses_targets = get_positive_responses_targets(pos_msg, situations, negative_thoughts, positive_thoughts, load_from_file=False)
+        pos_r_msg, positive_responses_targets = get_positive_responses_targets(pos_msg, situations, positive_thoughts, load_from_file=False)
 
         pass
 
